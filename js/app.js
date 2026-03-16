@@ -70,28 +70,17 @@ const loadingPanel    = document.getElementById('loading');
 const errorMsg        = document.getElementById('error-msg');
 const mapPlaceholder  = document.getElementById('map-placeholder');
 const routeCardTpl    = document.getElementById('route-card-template');
-const drawerToggle    = document.getElementById('drawer-toggle');
-const drawerBackdrop  = document.getElementById('drawer-backdrop');
-const sidebar         = document.getElementById('sidebar');
+const sidebar          = document.getElementById('sidebar');
+const collapseBtn      = document.getElementById('sidebar-collapse-btn');
+const collapseLabel    = document.getElementById('collapse-label');
 
-// ---- Mobile drawer ---------------------------------------------------
+// ---- Mobile sidebar collapse -----------------------------------------
 
-function openDrawer() {
-  sidebar.classList.add('open');
-  drawerBackdrop.classList.add('open');
-}
-
-function closeDrawer() {
-  sidebar.classList.remove('open');
-  drawerBackdrop.classList.remove('open');
+collapseBtn.addEventListener('click', () => {
+  const collapsed = sidebar.classList.toggle('collapsed');
+  collapseLabel.textContent = collapsed ? 'Expand' : 'Collapse';
   if (map) setTimeout(() => map.invalidateSize(), 300);
-}
-
-drawerToggle.addEventListener('click', () => {
-  sidebar.classList.contains('open') ? closeDrawer() : openDrawer();
 });
-
-drawerBackdrop.addEventListener('click', closeDrawer);
 
 // ---- Map init --------------------------------------------------------
 
@@ -313,7 +302,12 @@ async function findRoutes() {
   });
 
   renderRoutes(unique, durationMins);
-  closeDrawer();
+  // Auto-collapse sidebar on mobile to show the map
+  if (window.innerWidth <= 768) {
+    sidebar.classList.add('collapsed');
+    collapseLabel.textContent = 'Expand';
+    if (map) setTimeout(() => map.invalidateSize(), 300);
+  }
 }
 
 // ---- TomTom Routing API ----------------------------------------------
