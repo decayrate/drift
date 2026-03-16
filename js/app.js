@@ -51,7 +51,8 @@ let routeLayers = [];          // { polyline: L.Polyline, data, colour }
 let startMarker = null;
 let selectedIndex = null;
 let searchTimeout = null;
-let tomtomApiKey = localStorage.getItem('drift_tomtom_key') || '';
+// ⬇️ Paste your TomTom API key here (free at https://developer.tomtom.com)
+const TOMTOM_API_KEY = 'PkGEULxsN4QILT89bJU4ybEmVZZYhUKR';
 
 // ---- DOM References --------------------------------------------------
 
@@ -69,44 +70,6 @@ const loadingPanel    = document.getElementById('loading');
 const errorMsg        = document.getElementById('error-msg');
 const mapPlaceholder  = document.getElementById('map-placeholder');
 const routeCardTpl    = document.getElementById('route-card-template');
-const apiKeyInput     = document.getElementById('api-key-input');
-const apiKeySaveBtn   = document.getElementById('api-key-save-btn');
-const apiKeyStatus    = document.getElementById('api-key-status');
-
-// ---- API Key ---------------------------------------------------------
-
-function updateApiKeyStatus() {
-  if (tomtomApiKey) {
-    apiKeyStatus.textContent = 'saved';
-    apiKeyStatus.style.background = 'rgba(63, 185, 80, 0.15)';
-    apiKeyStatus.style.color = '#3fb950';
-    apiKeyInput.value = '';
-    apiKeyInput.placeholder = 'Key saved — paste new key to update';
-  } else {
-    apiKeyStatus.textContent = 'not set';
-    apiKeyStatus.style.background = '';
-    apiKeyStatus.style.color = '';
-  }
-}
-
-apiKeySaveBtn.addEventListener('click', () => {
-  const key = apiKeyInput.value.trim();
-  if (key) {
-    tomtomApiKey = key;
-    localStorage.setItem('drift_tomtom_key', key);
-    updateApiKeyStatus();
-  }
-});
-
-apiKeyInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    apiKeySaveBtn.click();
-  }
-});
-
-updateApiKeyStatus();
-
 // ---- Map init --------------------------------------------------------
 
 function initMap() {
@@ -295,7 +258,7 @@ async function findRoutes() {
 
   const waypoints = BEARINGS.map(b => offsetLatLng(startLatLng, waypointDistKm, b));
 
-  const useTomTom = !!tomtomApiKey;
+  const useTomTom = !!TOMTOM_API_KEY;
 
   const promises = waypoints.map((wp, i) => {
     const fetcher = useTomTom
@@ -337,7 +300,7 @@ async function fetchTomTomRoute(origin, waypoint) {
 
   // Map road preference to TomTom avoid parameters
   const params = new URLSearchParams({
-    key: tomtomApiKey,
+    key: TOMTOM_API_KEY,
     traffic: 'true',
     travelMode: 'car',
     routeType: roadPreference === 'motorway' ? 'fastest' : roadPreference === 'scenic' ? 'short' : 'fastest',
