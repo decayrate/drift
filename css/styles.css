@@ -91,6 +91,14 @@ html, body {
   margin-left: 46px;
 }
 
+.app-description {
+  font-size: 13px;
+  color: var(--text-sec);
+  line-height: 1.5;
+  margin-top: 12px;
+  padding: 0 4px;
+}
+
 /* ---- Controls ---- */
 
 #controls {
@@ -256,6 +264,61 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+/* API key save button */
+#api-key-save-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-sec);
+  width: 38px;
+  min-width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+#api-key-save-btn:hover {
+  color: var(--success);
+  border-color: var(--success);
+}
+
+input[type="password"] {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-pri);
+  padding: 9px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input[type="password"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.15);
+}
+
+input[type="password"]::placeholder {
+  color: var(--text-muted);
+}
+
+.help-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.help-link:hover {
+  text-decoration: underline;
+}
+
+/* Traffic stat colour overrides */
+.stat-traffic {
+  font-weight: 500;
 }
 
 /* Find Routes button */

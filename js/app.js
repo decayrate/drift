@@ -1,8 +1,8 @@
 /* =========================================================
-   Car ride — app.js
-   Leaflet + OSRM loop route generator
+   drift — app.js
+   Leaflet + TomTom loop route generator with live traffic
    Map tiles: Carto Dark Matter (no API key needed)
-   Routing:   OSRM public demo API (no API key needed)
+   Routing:   TomTom Routing API (free key, live traffic)
    Geocoding: Nominatim / OpenStreetMap (no API key needed)
    ========================================================= */
 
@@ -32,12 +32,15 @@ const AVG_SPEED = {
 
 const EARTH_RADIUS_KM = 6371;
 
-// OSRM public demo — for production deploy your own instance
+// TomTom Routing API
+const TOMTOM_BASE = 'https://api.tomtom.com/routing/1/calculateRoute';
+
+// OSRM public demo — fallback when no TomTom key is set
 const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving';
 
 // Nominatim
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
-const NOMINATIM_HEADERS = { 'Accept-Language': 'en', 'User-Agent': 'CarRideApp/1.0' };
+const NOMINATIM_HEADERS = { 'Accept-Language': 'en', 'User-Agent': 'DriftApp/1.0' };
 
 // ---- State -----------------------------------------------------------
 
@@ -48,6 +51,7 @@ let routeLayers = [];          // { polyline: L.Polyline, data, colour }
 let startMarker = null;
 let selectedIndex = null;
 let searchTimeout = null;
+let tomtomApiKey = localStorage.getItem('drift_tomtom_key') || '';
 
 // ---- DOM References --------------------------------------------------
 
@@ -65,6 +69,43 @@ const loadingPanel    = document.getElementById('loading');
 const errorMsg        = document.getElementById('error-msg');
 const mapPlaceholder  = document.getElementById('map-placeholder');
 const routeCardTpl    = document.getElementById('route-card-template');
+const apiKeyInput     = document.getElementById('api-key-input');
+const apiKeySaveBtn   = document.getElementById('api-key-save-btn');
+const apiKeyStatus    = document.getElementById('api-key-status');
+
+// ---- API Key ---------------------------------------------------------
+
+function updateApiKeyStatus() {
+  if (tomtomApiKey) {
+    apiKeyStatus.textContent = 'saved';
+    apiKeyStatus.style.background = 'rgba(63, 185, 80, 0.15)';
+    apiKeyStatus.style.color = '#3fb950';
+    apiKeyInput.value = '';
+    apiKeyInput.placeholder = 'Key saved — paste new key to update';
+  } else {
+    apiKeyStatus.textContent = 'not set';
+    apiKeyStatus.style.background = '';
+    apiKeyStatus.style.color = '';
+  }
+}
+
+apiKeySaveBtn.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (key) {
+    tomtomApiKey = key;
+    localStorage.setItem('drift_tomtom_key', key);
+    updateApiKeyStatus();
+  }
+});
+
+apiKeyInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    apiKeySaveBtn.click();
+  }
+});
+
+updateApiKeyStatus();
 
 // ---- Map init --------------------------------------------------------
 
@@ -254,11 +295,16 @@ async function findRoutes() {
 
   const waypoints = BEARINGS.map(b => offsetLatLng(startLatLng, waypointDistKm, b));
 
-  const promises = waypoints.map((wp, i) =>
-    fetchOsrmRoute(startLatLng, wp)
+  const useTomTom = !!tomtomApiKey;
+
+  const promises = waypoints.map((wp, i) => {
+    const fetcher = useTomTom
+      ? fetchTomTomRoute(startLatLng, wp)
+      : fetchOsrmRoute(startLatLng, wp);
+    return fetcher
       .then(route => ({ route, name: BEARING_NAMES[i], index: i }))
-      .catch(() => null)
-  );
+      .catch(() => null);
+  });
 
   const settled = await Promise.all(promises);
   const valid   = settled.filter(Boolean);
@@ -266,7 +312,9 @@ async function findRoutes() {
   showLoading(false);
 
   if (valid.length === 0) {
-    showError('No routes could be calculated. The OSRM demo server may be rate-limiting. Try again in a moment.');
+    showError(useTomTom
+      ? 'No routes could be calculated. Check your TomTom API key and try again.'
+      : 'No routes could be calculated. The OSRM demo server may be rate-limiting. Try again in a moment.');
     return;
   }
 
@@ -281,7 +329,55 @@ async function findRoutes() {
   renderRoutes(unique, durationMins);
 }
 
-// ---- OSRM API --------------------------------------------------------
+// ---- TomTom Routing API ----------------------------------------------
+
+async function fetchTomTomRoute(origin, waypoint) {
+  // TomTom uses colon-separated lat,lng pairs
+  const locations = `${origin.lat},${origin.lng}:${waypoint.lat},${waypoint.lng}:${origin.lat},${origin.lng}`;
+
+  // Map road preference to TomTom avoid parameters
+  const params = new URLSearchParams({
+    key: tomtomApiKey,
+    traffic: 'true',
+    travelMode: 'car',
+    routeType: roadPreference === 'motorway' ? 'fastest' : roadPreference === 'scenic' ? 'short' : 'fastest',
+    departAt: 'now',
+    routeRepresentation: 'polyline',
+  });
+
+  // Motorway preference: avoid unpaved roads
+  // Scenic preference: avoid motorways and tollRoads for calmer roads
+  if (roadPreference === 'scenic') {
+    params.append('avoid', 'motorways');
+  }
+
+  const url = `${TOMTOM_BASE}/${locations}/json?${params}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`TomTom ${res.status}`);
+  const data = await res.json();
+
+  if (!data.routes || !data.routes.length) throw new Error('No route');
+
+  const route = data.routes[0];
+  const summary = route.summary;
+
+  // Normalise to a common format matching OSRM shape
+  return {
+    distance: summary.lengthInMeters,
+    duration: summary.travelTimeInSeconds,
+    trafficDelay: summary.trafficDelayInSeconds || 0,
+    liveTrafficTime: summary.liveTrafficIncidentsTravelTimeInSeconds || summary.travelTimeInSeconds,
+    hasTraffic: true,
+    geometry: {
+      type: 'LineString',
+      coordinates: route.legs.flatMap(leg =>
+        leg.points.map(p => [p.longitude, p.latitude])
+      ),
+    },
+  };
+}
+
+// ---- OSRM API (fallback) ---------------------------------------------
 
 async function fetchOsrmRoute(origin, waypoint) {
   // OSRM coords are "lng,lat" (GeoJSON order)
@@ -294,7 +390,11 @@ async function fetchOsrmRoute(origin, waypoint) {
   if (!res.ok) throw new Error(`OSRM ${res.status}`);
   const data = await res.json();
   if (data.code !== 'Ok' || !data.routes.length) throw new Error('No route');
-  return data.routes[0]; // { distance (m), duration (s), geometry: GeoJSON LineString }
+
+  const route = data.routes[0];
+  route.hasTraffic = false;
+  route.trafficDelay = 0;
+  return route;
 }
 
 // ---- Render ----------------------------------------------------------
@@ -343,6 +443,25 @@ function buildRouteCard(data, colour, index, targetMins) {
   card.querySelector('.stat-distance').textContent = `${distKm.toFixed(1)} km`;
   card.querySelector('.route-summary').textContent = diffStr;
 
+  // Traffic delay info (only when using TomTom)
+  if (data.route.hasTraffic) {
+    const trafficStat = card.querySelector('.stat-traffic');
+    const trafficText = card.querySelector('.stat-traffic-text');
+    trafficStat.classList.remove('hidden');
+
+    const delayMins = Math.round(data.route.trafficDelay / 60);
+    if (delayMins <= 0) {
+      trafficText.textContent = 'No delays';
+      trafficStat.style.color = '#3fb950';
+    } else if (delayMins <= 5) {
+      trafficText.textContent = `+${delayMins} min traffic`;
+      trafficStat.style.color = '#d29922';
+    } else {
+      trafficText.textContent = `+${delayMins} min traffic`;
+      trafficStat.style.color = '#f85149';
+    }
+  }
+
   // External map links
   const midCoord = midpoint(data.route.geometry.coordinates);
   card.querySelector('.google-link').href = googleMapsUrl(startLatLng, midCoord);
@@ -386,15 +505,13 @@ function selectRoute(index) {
 
 // ---- External map links ----------------------------------------------
 
-/** Returns the midpoint coordinate [lng, lat] of an OSRM geometry coordinates array */
+/** Returns the midpoint coordinate [lng, lat] of a geometry coordinates array */
 function midpoint(coords) {
   return coords[Math.floor(coords.length / 2)];
 }
 
 /**
  * Google Maps directions URL for a loop: start → waypoint → start
- * Uses the route geometry midpoint as the waypoint so the URL reflects
- * the actual path rather than the raw offset point.
  */
 function googleMapsUrl(origin, midCoord) {
   const o = `${origin.lat},${origin.lng}`;
@@ -403,9 +520,7 @@ function googleMapsUrl(origin, midCoord) {
 }
 
 /**
- * Apple Maps URL. Apple Maps' URL scheme supports saddr + daddr but not
- * full multi-stop loops, so we direct to the midpoint and the user can
- * continue back from there.
+ * Apple Maps URL.
  */
 function appleMapsUrl(origin, midCoord) {
   const s = `${origin.lat},${origin.lng}`;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Drift</title>
+  <title>drift</title>
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="css/styles.css" />
@@ -67,12 +67,42 @@
             <!-- Tail light -->
             <rect x="1" y="19.5" width="2" height="3" rx="0.6" fill="#fca5a5" opacity="0.8"/>
           </svg>
-          <h1>Drift</h1>
+          <h1>drift</h1>
         </div>
         <p class="tagline">Drive your baby to sleep</p>
+        <p class="app-description">Pick your starting point and desired duration and drift will recommend a route which minimises traffic lights, live traffic and stops to ensure your little one drifts away and stays asleep uninterupted.</p>
+        <p class="app-description">Let drift do the heavy lifting and help your little one get the much needed sleep they need!</p>
       </div>
 
       <div id="controls">
+        <!-- API Key -->
+        <div class="control-group">
+          <label for="api-key-input">
+            TomTom API Key
+            <span id="api-key-status" class="value-badge">not set</span>
+          </label>
+          <div class="input-row">
+            <input
+              type="password"
+              id="api-key-input"
+              placeholder="Paste your TomTom API key..."
+              autocomplete="off"
+            />
+            <button id="api-key-save-btn" title="Save API key">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <p class="help-text">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Free at <a href="https://developer.tomtom.com" target="_blank" rel="noopener noreferrer" class="help-link">developer.tomtom.com</a> — enables live traffic routing
+          </p>
+        </div>
+
         <!-- Start Location -->
         <div class="control-group">
           <label for="start-input">Starting Point</label>
@@ -198,6 +228,13 @@
             <path d="M3 12h18M12 3l9 9-9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span class="stat-distance"></span>
+        </div>
+        <div class="stat stat-traffic hidden">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <span class="stat-traffic-text"></span>
         </div>
       </div>
       <div class="route-summary"></div>
