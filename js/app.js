@@ -70,6 +70,29 @@ const loadingPanel    = document.getElementById('loading');
 const errorMsg        = document.getElementById('error-msg');
 const mapPlaceholder  = document.getElementById('map-placeholder');
 const routeCardTpl    = document.getElementById('route-card-template');
+const drawerToggle    = document.getElementById('drawer-toggle');
+const drawerBackdrop  = document.getElementById('drawer-backdrop');
+const sidebar         = document.getElementById('sidebar');
+
+// ---- Mobile drawer ---------------------------------------------------
+
+function openDrawer() {
+  sidebar.classList.add('open');
+  drawerBackdrop.classList.add('open');
+}
+
+function closeDrawer() {
+  sidebar.classList.remove('open');
+  drawerBackdrop.classList.remove('open');
+  if (map) setTimeout(() => map.invalidateSize(), 300);
+}
+
+drawerToggle.addEventListener('click', () => {
+  sidebar.classList.contains('open') ? closeDrawer() : openDrawer();
+});
+
+drawerBackdrop.addEventListener('click', closeDrawer);
+
 // ---- Map init --------------------------------------------------------
 
 function initMap() {
@@ -290,6 +313,7 @@ async function findRoutes() {
   });
 
   renderRoutes(unique, durationMins);
+  closeDrawer();
 }
 
 // ---- TomTom Routing API ----------------------------------------------
