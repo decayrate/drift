@@ -302,12 +302,14 @@ async function findRoutes() {
   });
 
   renderRoutes(unique, durationMins);
-  // Auto-collapse sidebar on mobile to show the map
-  if (window.innerWidth <= 768) {
-    sidebar.classList.add('collapsed');
-    collapseLabel.textContent = 'Expand';
+  // On mobile, expand the sidebar so the user can see the results
+  if (window.innerWidth <= 768 && sidebar.classList.contains('collapsed')) {
+    sidebar.classList.remove('collapsed');
+    collapseLabel.textContent = 'Collapse';
     if (map) setTimeout(() => map.invalidateSize(), 300);
   }
+  // Scroll results into view
+  resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ---- TomTom Routing API ----------------------------------------------
@@ -396,6 +398,15 @@ function renderRoutes(routes, targetMins) {
       opacity: i === 0 ? 0.9 : 0.45,
     }).addTo(map);
 
+    // Allow selecting routes by clicking on the map
+    polyline.on('click', () => selectRoute(i));
+    polyline.on('mouseover', () => {
+      if (selectedIndex !== i) polyline.setStyle({ weight: 5, opacity: 0.7 });
+    });
+    polyline.on('mouseout', () => {
+      if (selectedIndex !== i) polyline.setStyle({ weight: 3, opacity: 0.35 });
+    });
+
     routeLayers.push({ polyline, data, colour });
 
     const card = buildRouteCard(data, colour, i, targetMins);
@@ -481,6 +492,11 @@ function selectRoute(index) {
   // Fit map to selected route bounds
   if (routeLayers[index]) {
     map.fitBounds(routeLayers[index].polyline.getBounds(), { padding: [60, 60] });
+  }
+
+  // Scroll the selected card into view (useful when selecting from the map)
+  if (cards[index]) {
+    cards[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 

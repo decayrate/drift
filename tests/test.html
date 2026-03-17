@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>drift — tests</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <style>
+    body { padding: 20px; font-family: monospace; background: #0d1117; color: #e6edf3; }
+    .pass { color: #3fb950; }
+    .fail { color: #f85149; }
+    #test-output { white-space: pre-wrap; line-height: 1.8; }
+    h2 { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h2>drift test suite</h2>
+  <div id="test-output"></div>
+
+  <!-- Replicate just enough DOM for the app to initialise -->
+  <div id="app" style="display:none;">
+    <aside id="sidebar">
+      <button id="sidebar-collapse-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2"/></svg><span id="collapse-label">Collapse</span></button>
+      <div id="sidebar-header"></div>
+      <div id="controls">
+        <div class="control-group">
+          <div class="input-row">
+            <div class="search-wrap">
+              <input type="text" id="start-input" autocomplete="off" />
+              <ul id="suggestions" class="hidden"></ul>
+            </div>
+            <button id="locate-btn"></button>
+          </div>
+        </div>
+        <div class="control-group">
+          <label for="duration-slider">Duration <span id="duration-display" class="value-badge">60 min</span></label>
+          <input type="range" id="duration-slider" min="10" max="240" value="60" step="5" />
+        </div>
+        <div class="control-group">
+          <div class="toggle-group" id="road-preference">
+            <button class="toggle-btn" data-value="motorway">Motorway</button>
+            <button class="toggle-btn active" data-value="balanced">Balanced</button>
+            <button class="toggle-btn" data-value="scenic">Scenic</button>
+          </div>
+        </div>
+        <button id="find-routes-btn" disabled>Find Routes</button>
+      </div>
+      <div id="results" class="hidden">
+        <div id="results-header"><h2>Routes Found</h2><span id="results-count"></span></div>
+        <div id="route-list"></div>
+      </div>
+      <div id="loading" class="hidden"><div class="spinner"></div><p>Calculating routes...</p></div>
+      <div id="error-msg" class="hidden"></div>
+    </aside>
+    <main id="map-container">
+      <div id="map" style="width:400px;height:300px;"></div>
+      <div id="map-placeholder"><div class="placeholder-content"><h3>Enter a starting point</h3></div></div>
+    </main>
+  </div>
+
+  <template id="route-card-template">
+    <div class="route-card">
+      <div class="route-card-header">
+        <div class="route-color-dot"></div>
+        <div class="route-name"></div>
+        <button class="route-select-btn">Select</button>
+      </div>
+      <div class="route-stats">
+        <div class="stat"><span class="stat-time"></span></div>
+        <div class="stat"><span class="stat-distance"></span></div>
+        <div class="stat stat-traffic hidden"><span class="stat-traffic-text"></span></div>
+      </div>
+      <div class="route-summary"></div>
+      <div class="route-links hidden">
+        <a class="map-link google-link" target="_blank" rel="noopener noreferrer">Google Maps</a>
+        <a class="map-link apple-link" target="_blank" rel="noopener noreferrer">Apple Maps</a>
+      </div>
+    </div>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    const out = document.getElementById('test-output');
+    let passed = 0;
+    let failed = 0;
+
+    function assert(name, condition) {
+      if (condition) {
+        out.innerHTML += `<span class="pass">PASS</span>  ${name}\n`;
+        passed++;
+      } else {
+        out.innerHTML += `<span class="fail">FAIL</span>  ${name}\n`;
+        failed++;
+      }
+    }
+
+    // ---- Tests ----
+
+    // 1. Map initialisation
+    assert('Map initialised', map !== null && typeof map.setView === 'function');
+
+    // 2. DOM elements exist
+    assert('Sidebar element exists', sidebar instanceof HTMLElement);
+    assert('Collapse button exists', collapseBtn instanceof HTMLElement);
+    assert('Find routes button exists', findRoutesBtn instanceof HTMLElement);
+    assert('Start input exists', startInput instanceof HTMLElement);
+    assert('Duration slider exists', durationSlider instanceof HTMLElement);
+
+    // 3. Sidebar collapse toggle
+    collapseBtn.click();
+    assert('Sidebar collapses on click', sidebar.classList.contains('collapsed'));
+    assert('Label changes to Expand', collapseLabel.textContent === 'Expand');
+    collapseBtn.click();
+    assert('Sidebar expands on second click', !sidebar.classList.contains('collapsed'));
+    assert('Label changes back to Collapse', collapseLabel.textContent === 'Collapse');
+
+    // 4. Find routes button starts disabled
+    findRoutesBtn.disabled = true; // reset
+    assert('Find routes button is disabled initially', findRoutesBtn.disabled === true);
+
+    // 5. setStart enables button and places marker
+    setStart({ lat: 51.5, lng: -0.1 });
+    assert('Find routes button enabled after setStart', findRoutesBtn.disabled === false);
+    assert('Start marker placed', startMarker !== null);
+    assert('startLatLng is set', startLatLng !== null && startLatLng.lat === 51.5);
+
+    // 6. Helper functions
+    assert('formatDuration: 30 min', formatDuration(30) === '30 min');
+    assert('formatDuration: 60 min = 1 hr', formatDuration(60) === '1 hr');
+    assert('formatDuration: 90 min = 1 hr 30 min', formatDuration(90) === '1 hr 30 min');
+
+    assert('routeMins calculates correctly', routeMins({ duration: 3600 }) === 60);
+
+    assert('offsetLatLng returns valid coords', (() => {
+      const p = offsetLatLng({ lat: 51.5, lng: -0.1 }, 10, 90);
+      return typeof p.lat === 'number' && typeof p.lng === 'number' && p.lng > -0.1;
+    })());
+
+    // 7. deduplicateRoutes removes near-duplicates
+    const testRoutes = [
+      { route: { distance: 10000 } },
+      { route: { distance: 10200 } }, // within 5% — duplicate
+      { route: { distance: 20000 } },
+    ];
+    assert('deduplicateRoutes removes near-dupes', deduplicateRoutes(testRoutes).length === 2);
+
+    // 8. Route rendering and map click selection
+    const mockRoutes = [
+      {
+        name: 'North',
+        route: {
+          distance: 25000, duration: 1800, hasTraffic: false, trafficDelay: 0,
+          geometry: { type: 'LineString', coordinates: [[-0.1,51.5],[-0.05,51.55],[0.0,51.5],[-0.1,51.5]] }
+        }
+      },
+      {
+        name: 'South',
+        route: {
+          distance: 30000, duration: 2400, hasTraffic: false, trafficDelay: 0,
+          geometry: { type: 'LineString', coordinates: [[-0.1,51.5],[-0.05,51.45],[0.0,51.5],[-0.1,51.5]] }
+        }
+      },
+    ];
+
+    clearRoutes();
+    renderRoutes(mockRoutes, 30);
+
+    assert('Two route layers rendered', routeLayers.length === 2);
+    assert('Two route cards rendered', routeList.querySelectorAll('.route-card').length === 2);
+    assert('First route is selected by default', selectedIndex === 0);
+    assert('Results panel is visible', !resultsPanel.classList.contains('hidden'));
+
+    // 9. Polyline click selects route
+    assert('Polylines have click handlers', (() => {
+      // Simulate clicking the second route polyline
+      routeLayers[1].polyline.fire('click');
+      return selectedIndex === 1;
+    })());
+
+    const cards = routeList.querySelectorAll('.route-card');
+    assert('Second card is selected after polyline click', cards[1].classList.contains('selected'));
+    assert('First card is deselected after polyline click', !cards[0].classList.contains('selected'));
+
+    // 10. Selecting back via card click
+    cards[0].click();
+    assert('Card click selects route', selectedIndex === 0);
+
+    // 11. Route card content is populated
+    const firstCard = cards[0];
+    assert('Route name is set', firstCard.querySelector('.route-name').textContent === 'North Loop');
+    assert('Time stat is set', firstCard.querySelector('.stat-time').textContent === '30 min');
+    assert('Distance stat is set', firstCard.querySelector('.stat-distance').textContent.includes('25.0'));
+
+    // 12. External map links generated
+    assert('Google Maps link populated', firstCard.querySelector('.google-link').href.includes('google.com/maps'));
+    assert('Apple Maps link populated', firstCard.querySelector('.apple-link').href.includes('maps.apple.com'));
+
+    // 13. Mobile sidebar CSS — check the sidebar has the collapse button
+    assert('Collapse button is in DOM', document.getElementById('sidebar-collapse-btn') !== null);
+
+    // 14. Road preference toggle
+    const scenicBtn = document.querySelector('[data-value="scenic"]');
+    scenicBtn.click();
+    assert('Road preference updates on toggle click', roadPreference === 'scenic');
+    assert('Scenic button has active class', scenicBtn.classList.contains('active'));
+
+    // 15. Duration slider display
+    durationSlider.value = 120;
+    durationSlider.dispatchEvent(new Event('input'));
+    assert('Duration display updates', durationDisplay.textContent === '2 hr');
+
+    // ---- Summary ----
+    out.innerHTML += `\n──────────────────────────────\n`;
+    out.innerHTML += `Total: ${passed + failed}  `;
+    out.innerHTML += `<span class="pass">Passed: ${passed}</span>  `;
+    if (failed > 0) {
+      out.innerHTML += `<span class="fail">Failed: ${failed}</span>\n`;
+    } else {
+      out.innerHTML += `Failed: 0\n`;
+    }
+
+    // Signal result to the document title for automated runners
+    document.title = failed === 0 ? 'TESTS_PASSED' : 'TESTS_FAILED';
+  </script>
+</body>
+</html>

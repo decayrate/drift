@@ -743,29 +743,52 @@ input[type="password"]::placeholder {
 
 @media (max-width: 768px) {
   #app {
-    flex-direction: column;
+    flex-direction: row;
   }
 
   #sidebar {
-    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 300px;
     min-width: 0;
-    max-height: 55vh;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    transition: max-height 0.3s ease;
+    max-height: none;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    transform: translateX(0);
   }
 
   #sidebar.collapsed {
-    max-height: 44px;
-    overflow: hidden;
+    transform: translateX(-100%);
+    overflow: visible;
   }
 
   #sidebar-collapse-btn {
     display: flex;
   }
 
+  /* When collapsed, the toggle button peeks out from the left edge */
+  #sidebar.collapsed #sidebar-collapse-btn {
+    position: absolute;
+    top: 12px;
+    left: 100%;
+    width: auto;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--bg-card);
+  }
+
   #sidebar.collapsed #sidebar-collapse-btn svg {
-    transform: rotate(180deg);
+    transform: rotate(-90deg);
+  }
+
+  #sidebar:not(.collapsed) #sidebar-collapse-btn svg {
+    transform: rotate(90deg);
   }
 
   #map-container {
