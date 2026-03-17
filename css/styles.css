@@ -659,6 +659,67 @@ input[type="password"]::placeholder {
   color: var(--accent);
 }
 
+/* Route map tooltip */
+.route-tooltip {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text-pri) !important;
+  padding: 10px 12px !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.route-tooltip::before {
+  border: none !important;
+}
+
+.route-tooltip .tooltip-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-tooltip .tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.route-tooltip .tooltip-stats {
+  display: flex;
+  gap: 12px;
+  color: var(--text-sec);
+}
+
+.route-tooltip .tooltip-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.route-tooltip .tooltip-traffic {
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.route-tooltip .traffic-good { color: #3fb950; }
+.route-tooltip .traffic-moderate { color: #d29922; }
+.route-tooltip .traffic-heavy { color: #f85149; }
+
+.route-tooltip-permanent {
+  pointer-events: auto;
+}
+
 /* Leaflet overrides */
 .leaflet-control-zoom a {
   background: var(--bg-card) !important;

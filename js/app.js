@@ -51,6 +51,7 @@ let routeLayers = [];          // { polyline: L.Polyline, data, colour }
 let startMarker = null;
 let selectedIndex = null;
 let searchTimeout = null;
+let permanentTooltip = null;  // persistent tooltip for selected route
 // ⬇️ Paste your TomTom API key here (free at https://developer.tomtom.com)
 const TOMTOM_API_KEY = 'PkGEULxsN4QILT89bJU4ybEmVZZYhUKR';
 
@@ -380,6 +381,56 @@ async function fetchOsrmRoute(origin, waypoint) {
   return route;
 }
 
+// ---- Route tooltip ---------------------------------------------------
+
+function buildTooltipHtml(data, colour) {
+  const mins = routeMins(data.route);
+  const distKm = (data.route.distance / 1000).toFixed(1);
+
+  let trafficHtml = '';
+  if (data.route.hasTraffic) {
+    const delayMins = Math.round(data.route.trafficDelay / 60);
+    if (delayMins <= 0) {
+      trafficHtml = '<div class="tooltip-traffic"><span class="traffic-good">No delays</span></div>';
+    } else {
+      const cls = delayMins <= 5 ? 'traffic-moderate' : 'traffic-heavy';
+      trafficHtml = `<div class="tooltip-traffic"><span class="${cls}">+${delayMins} min traffic</span></div>`;
+    }
+  }
+
+  return `<div class="tooltip-name"><span class="tooltip-dot" style="background:${colour}"></span>${data.name} Loop</div>`
+    + `<div class="tooltip-stats">`
+    + `<span class="tooltip-stat">${formatDuration(mins)}</span>`
+    + `<span class="tooltip-stat">${distKm} km</span>`
+    + `</div>`
+    + trafficHtml;
+}
+
+function showPermanentTooltip(index) {
+  if (permanentTooltip) {
+    map.removeLayer(permanentTooltip);
+    permanentTooltip = null;
+  }
+
+  const layer = routeLayers[index];
+  if (!layer) return;
+
+  const coords = layer.data.route.geometry.coordinates;
+  const mid = coords[Math.floor(coords.length / 2)];
+  const latlng = L.latLng(mid[1], mid[0]);
+
+  permanentTooltip = L.tooltip({
+    permanent: true,
+    direction: 'top',
+    offset: [0, -10],
+    className: 'route-tooltip route-tooltip-permanent',
+    interactive: false,
+  })
+    .setLatLng(latlng)
+    .setContent(buildTooltipHtml(layer.data, layer.colour))
+    .addTo(map);
+}
+
 // ---- Render ----------------------------------------------------------
 
 function renderRoutes(routes, targetMins) {
@@ -397,6 +448,14 @@ function renderRoutes(routes, targetMins) {
       weight:  i === 0 ? 5 : 3,
       opacity: i === 0 ? 0.9 : 0.45,
     }).addTo(map);
+
+    // Bind hover tooltip (follows cursor along the route)
+    polyline.bindTooltip(buildTooltipHtml(data, colour), {
+      sticky: true,
+      direction: 'top',
+      offset: [0, -10],
+      className: 'route-tooltip',
+    });
 
     // Allow selecting routes by clicking on the map
     polyline.on('click', () => selectRoute(i));
@@ -477,9 +536,15 @@ function selectRoute(index) {
       weight:  active ? 5 : 3,
       opacity: active ? 0.9 : 0.35,
     });
-    // Bring active route to front
-    if (active) polyline.bringToFront();
+    // Bring active route to front, unbind hover tooltip so it doesn't clash
+    if (active) {
+      polyline.bringToFront();
+      polyline.closeTooltip();
+    }
   });
+
+  // Show permanent tooltip on the selected route
+  showPermanentTooltip(index);
 
   const cards = routeList.querySelectorAll('.route-card');
   cards.forEach((card, i) => {
@@ -570,6 +635,10 @@ function clearRoutes() {
   routeLayers.forEach(({ polyline }) => polyline.remove());
   routeLayers  = [];
   selectedIndex = null;
+  if (permanentTooltip) {
+    map.removeLayer(permanentTooltip);
+    permanentTooltip = null;
+  }
 }
 
 // ---- UI helpers ------------------------------------------------------

@@ -78,6 +78,7 @@ def check_js_syntax():
         "renderRoutes", "buildRouteCard", "selectRoute",
         "offsetLatLng", "routeMins", "deduplicateRoutes", "formatDuration",
         "clearRoutes", "showError",
+        "buildTooltipHtml", "showPermanentTooltip",
     ]
 
     for fn in required_functions:
@@ -91,6 +92,14 @@ def check_js_syntax():
     # Check polyline hover handlers exist
     if "polyline.on('mouseover'" not in js and 'polyline.on("mouseover"' not in js:
         errors.append("JS missing polyline mouseover handler")
+
+    # Check hover tooltip is bound to polylines
+    if "polyline.bindTooltip" not in js:
+        errors.append("JS missing polyline.bindTooltip for route hover tooltips")
+
+    # Check permanent tooltip logic
+    if "permanentTooltip" not in js:
+        errors.append("JS missing permanentTooltip state for persistent route overlay")
 
     # Check sidebar collapse logic exists
     if "sidebar.classList.toggle('collapsed')" not in js and 'sidebar.classList.toggle("collapsed")' not in js:
@@ -146,6 +155,16 @@ def check_css_mobile():
     # Check collapse button styles
     if "#sidebar-collapse-btn" not in css:
         errors.append("CSS missing #sidebar-collapse-btn styles")
+
+    # Check route tooltip styles
+    if ".route-tooltip" not in css:
+        errors.append("CSS missing .route-tooltip styles for map overlay")
+
+    if ".tooltip-name" not in css:
+        errors.append("CSS missing .tooltip-name styles")
+
+    if ".route-tooltip-permanent" not in css:
+        errors.append("CSS missing .route-tooltip-permanent styles")
 
     # Ensure the old top-panel approach (flex-direction: column) is NOT used
     # Actually it could still be in the file for other uses, let's check the media query block

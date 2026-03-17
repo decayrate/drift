@@ -209,6 +209,56 @@
     durationSlider.dispatchEvent(new Event('input'));
     assert('Duration display updates', durationDisplay.textContent === '2 hr');
 
+    // 16. Tooltip functions exist
+    assert('buildTooltipHtml function exists', typeof buildTooltipHtml === 'function');
+    assert('showPermanentTooltip function exists', typeof showPermanentTooltip === 'function');
+
+    // 17. buildTooltipHtml returns correct content
+    const tooltipHtml = buildTooltipHtml(mockRoutes[0], '#4f8ef7');
+    assert('Tooltip contains route name', tooltipHtml.includes('North Loop'));
+    assert('Tooltip contains duration', tooltipHtml.includes('30 min'));
+    assert('Tooltip contains distance', tooltipHtml.includes('25.0'));
+    assert('Tooltip contains colour dot', tooltipHtml.includes('#4f8ef7'));
+
+    // 18. buildTooltipHtml with traffic data
+    const trafficRoute = {
+      name: 'East',
+      route: {
+        distance: 20000, duration: 1200, hasTraffic: true, trafficDelay: 300,
+        geometry: { type: 'LineString', coordinates: [[-0.1,51.5],[0.0,51.5]] }
+      }
+    };
+    const trafficTooltip = buildTooltipHtml(trafficRoute, '#3fb950');
+    assert('Traffic tooltip shows delay', trafficTooltip.includes('+5 min traffic'));
+    assert('Traffic tooltip has moderate class', trafficTooltip.includes('traffic-moderate'));
+
+    const noDelayRoute = {
+      name: 'West',
+      route: {
+        distance: 15000, duration: 900, hasTraffic: true, trafficDelay: 0,
+        geometry: { type: 'LineString', coordinates: [[-0.1,51.5],[-0.2,51.5]] }
+      }
+    };
+    const noDelayTooltip = buildTooltipHtml(noDelayRoute, '#f78166');
+    assert('No-delay tooltip shows green text', noDelayTooltip.includes('No delays'));
+    assert('No-delay tooltip has good class', noDelayTooltip.includes('traffic-good'));
+
+    // 19. Permanent tooltip appears for selected route
+    selectRoute(0);
+    assert('Permanent tooltip exists after selectRoute', permanentTooltip !== null);
+
+    // 20. Permanent tooltip updates when selection changes
+    const firstTooltip = permanentTooltip;
+    selectRoute(1);
+    assert('Permanent tooltip replaced on re-select', permanentTooltip !== firstTooltip);
+
+    // 21. Polylines have bound tooltips (hover)
+    assert('Polylines have bound tooltips', routeLayers[0].polyline.getTooltip() !== undefined);
+
+    // 22. clearRoutes removes permanent tooltip
+    clearRoutes();
+    assert('Permanent tooltip cleared', permanentTooltip === null);
+
     // ---- Summary ----
     out.innerHTML += `\n──────────────────────────────\n`;
     out.innerHTML += `Total: ${passed + failed}  `;
